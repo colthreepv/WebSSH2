@@ -21,16 +21,17 @@ var session = require('express-session')({
 var app = express()
 var compression = require('compression')
 var server = require('http').Server(app)
-var myutil = require('./util')
 var validator = require('validator')
 var io = require('socket.io')(server, { serveClient: false })
+var myutil = require('./util')
+var basicAuth = myutil.basicAuth(config)
 var socket = require('./socket')(config)
 var expressOptions = require('./expressOptions')
 
 // express
 app.use(compression({ level: 9 }))
 app.use(session)
-app.use(myutil.basicAuth)
+// app.use(basicAuth)
 if (config.accesslog) app.use(logger('common'))
 app.disable('x-powered-by')
 
