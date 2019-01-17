@@ -90,6 +90,8 @@ docker run --name webssh2 -d -p 2222:2222 webssh2
 
 * **user.password** - _string_ - Specify password to authenticate with. In normal cases this should be left to the default `null` setting.
 
+* **user.privkey** - _string_ - Specify path to private key. In normal cases this should be left to the default `null` setting.
+
 * **ssh.host** - _string_ - Specify host to connect to. May be either hostname or IP address. Defaults to `null`.
 
 * **ssh.port** - _integer_ - Specify SSH port to connect to, defaults to `22`
@@ -214,6 +216,15 @@ docker run --name webssh2 -d -p 2222:2222 webssh2
 * **serverlog.server** - _boolean_ - not implemented, default: false.
 
 * **accesslog** - _boolean_ - http style access logging to console.log, default: false
+
+# Environment variables
+Environment variables can be specified to override config file settings.  
+The variable pattern is `WSSH2_<key>_<nested_key>` character `_` acts as a `.` in the config file, to navigate nested keys.
+
+Example: **Override `listen.ip`**
+> WSSH2_listen_ip="127.0.0.1" node index.js
+
+Arrays overrides are not supported, refer to the config file for this kind of setting.
 
 # Experimental client-side logging
 Clicking `Start logging` on the status bar will log all data to the client. A `Download log` option will appear after starting the logging. You may download at any time to the client. You may stop logging at any time my pressing the `Logging - STOP LOG`. Note that clicking the `Start logging` option again will cause the current log to be overwritten, so be sure to download first.
