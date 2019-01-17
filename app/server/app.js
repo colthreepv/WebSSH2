@@ -24,7 +24,7 @@ var server = require('http').Server(app)
 var myutil = require('./util')
 var validator = require('validator')
 var io = require('socket.io')(server, { serveClient: false })
-var socket = require('./socket')
+var socket = require('./socket')(config)
 var expressOptions = require('./expressOptions')
 
 // express

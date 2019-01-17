@@ -7,15 +7,12 @@ var fs = require('fs')
 var debug = require('debug')
 var debugWebSSH2 = require('debug')('WebSSH2')
 var SSH = require('ssh2').Client
-var config = require('./app').config
 
 // var fs = require('fs')
 // var hostkeys = JSON.parse(fs.readFileSync('./hostkeyhashes.json', 'utf8'))
 var termCols, termRows
 var menuData = '<a id="logBtn"><i class="fas fa-clipboard fa-fw"></i> Start Log</a>' +
   '<a id="downloadLogBtn"><i class="fas fa-download fa-fw"></i> Download Log</a>'
-
-const DEFAULT_PRIVKEY = config.user.privkey != null ? fs.readFileSync(config.user.privkey) : null
 
 function sshForbidden (socket) {
   debugWebSSH2('Attempt to connect without session.username/password or session varialbles defined, potentially previously abandoned client session. disconnecting websocket client.\r\nHandshake information: \r\n  ' + JSON.stringify(socket.handshake))
@@ -25,7 +22,9 @@ function sshForbidden (socket) {
 }
 
 // public
-module.exports = function socket (socket) {
+function socketHandler (config, socket) {
+  const DEFAULT_PRIVKEY = config.user.privkey != null ? fs.readFileSync(config.user.privkey) : null
+
   // if websocket connection arrives without an express session, kill it
   if (!socket.request.session) {
     socket.emit('401 UNAUTHORIZED')
@@ -197,4 +196,8 @@ module.exports = function socket (socket) {
     }
     debugWebSSH2('SSHerror ' + myFunc + theError)
   }
+}
+
+module.exports = function (config) {
+  return socketHandler.bind(null, config)
 }
