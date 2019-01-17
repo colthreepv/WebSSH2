@@ -23,7 +23,9 @@ function sshForbidden (socket) {
 
 // public
 function socketHandler (config, socket) {
-  const DEFAULT_PRIVKEY = config.user.privkey != null ? fs.readFileSync(config.user.privkey) : null
+  var username = socket.request.session.username || config.user.name
+  var password = socket.request.session.userpassword || config.user.password
+  var privkey = config.user.privkey != null ? fs.readFileSync(config.user.privkey) : null
 
   // if websocket connection arrives without an express session, kill it
   if (!socket.request.session) {
@@ -44,14 +46,14 @@ function socketHandler (config, socket) {
   })
 
   conn.on('ready', function connOnReady () {
-    console.log('WebSSH2 Login: user=' + socket.request.session.username + ' from=' + socket.handshake.address + ' host=' + socket.request.session.ssh.host + ' port=' + socket.request.session.ssh.port + ' sessionID=' + socket.request.sessionID + '/' + socket.id + ' mrhsession=' + socket.request.session.ssh.mrhsession + ' allowreplay=' + socket.request.session.ssh.allowreplay + ' term=' + socket.request.session.ssh.term)
+    console.log('WebSSH2 Login: user=' + username + ' from=' + socket.handshake.address + ' host=' + socket.request.session.ssh.host + ' port=' + socket.request.session.ssh.port + ' sessionID=' + socket.request.sessionID + '/' + socket.id + ' mrhsession=' + socket.request.session.ssh.mrhsession + ' allowreplay=' + socket.request.session.ssh.allowreplay + ' term=' + socket.request.session.ssh.term)
     socket.emit('menu', menuData)
     socket.emit('allowreauth', socket.request.session.ssh.allowreauth)
     socket.emit('setTerminalOpts', socket.request.session.ssh.terminal)
     socket.emit('title', 'ssh://' + socket.request.session.ssh.host)
     if (socket.request.session.ssh.header.background) socket.emit('headerBackground', socket.request.session.ssh.header.background)
     if (socket.request.session.ssh.header.name) socket.emit('header', socket.request.session.ssh.header.name)
-    socket.emit('footer', 'ssh://' + socket.request.session.username + '@' + socket.request.session.ssh.host + ':' + socket.request.session.ssh.port)
+    socket.emit('footer', 'ssh://' + username + '@' + socket.request.session.ssh.host + ':' + socket.request.session.ssh.port)
     socket.emit('status', 'SSH CONNECTION ESTABLISHED')
     socket.emit('statusBackground', 'green')
     socket.emit('allowreplay', socket.request.session.ssh.allowreplay)
@@ -83,7 +85,7 @@ function socketHandler (config, socket) {
         switch (controlData) {
           case 'replayCredentials':
             if (socket.request.session.ssh.allowreplay) {
-              stream.write(socket.request.session.userpassword + '\n')
+              stream.write(password + '\n')
             }
           /* falls through */
           default:
@@ -123,28 +125,17 @@ function socketHandler (config, socket) {
   conn.on('error', function connOnError (err) { SSHerror('CONN ERROR', err) })
   conn.on('keyboard-interactive', function connOnKeyboardInteractive (name, instructions, instructionsLang, prompts, finish) {
     debugWebSSH2('conn.on(\'keyboard-interactive\')')
-    finish([socket.request.session.userpassword])
+    finish([password])
   })
 
-  if ( // base session check
-    socket.request.session.ssh == null ||
-    (socket.request.session.username == null && config.user.name == null)
-  ) {
-    return sshForbidden(socket)
-  }
-
-  if ( // password / default private key check
-    (socket.request.session.userpassword == null && config.user.password == null) &&
-    config.user.privkey == null
-  ) {
-    return sshForbidden(socket)
-  }
+  if (socket.request.session.ssh == null || username == null) return sshForbidden(socket)
+  if (password == null && config.user.privkey == null) return sshForbidden(socket)
 
   // console.log('hostkeys: ' + hostkeys[0].[0])
-  const sshConfig = {
+  var sshConfig = {
     host: socket.request.session.ssh.host,
     port: socket.request.session.ssh.port,
-    username: socket.request.session.username || config.user.name,
+    username: username || config.user.name,
     tryKeyboard: true,
     algorithms: socket.request.session.ssh.algorithms,
     readyTimeout: socket.request.session.ssh.readyTimeout,
@@ -153,10 +144,10 @@ function socketHandler (config, socket) {
     debug: debug('ssh2')
   }
 
-  if (DEFAULT_PRIVKEY != null) {
-    sshConfig.privateKey = DEFAULT_PRIVKEY
+  if (privkey != null) {
+    sshConfig.privateKey = privkey
   } else {
-    sshConfig.password = socket.request.session.userpassword || config.user.password
+    sshConfig.password = password
   }
 
   conn.connect(sshConfig)
@@ -176,12 +167,12 @@ function socketHandler (config, socket) {
       // log unsuccessful login attempt
       if (err && (err.level === 'client-authentication')) {
         console.log('WebSSH2 ' + 'error: Authentication failure'.red.bold +
-          ' user=' + socket.request.session.username.yellow.bold.underline +
+          ' user=' + username.yellow.bold.underline +
           ' from=' + socket.handshake.address.yellow.bold.underline)
         socket.emit('allowreauth', socket.request.session.ssh.allowreauth)
         socket.emit('reauth')
       } else {
-        console.log('WebSSH2 Logout: user=' + socket.request.session.username + ' from=' + socket.handshake.address + ' host=' + socket.request.session.ssh.host + ' port=' + socket.request.session.ssh.port + ' sessionID=' + socket.request.sessionID + '/' + socket.id + ' allowreplay=' + socket.request.session.ssh.allowreplay + ' term=' + socket.request.session.ssh.term)
+        console.log('WebSSH2 Logout: user=' + username + ' from=' + socket.handshake.address + ' host=' + socket.request.session.ssh.host + ' port=' + socket.request.session.ssh.port + ' sessionID=' + socket.request.sessionID + '/' + socket.id + ' allowreplay=' + socket.request.session.ssh.allowreplay + ' term=' + socket.request.session.ssh.term)
         if (err) {
           theError = (err) ? ': ' + err.message : ''
           console.log('WebSSH2 error' + theError)
