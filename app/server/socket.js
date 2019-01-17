@@ -1,16 +1,28 @@
 'use strict'
 /* jshint esversion: 6, asi: true, node: true */
 // socket.js
+var fs = require('fs')
 
 // private
 var debug = require('debug')
 var debugWebSSH2 = require('debug')('WebSSH2')
 var SSH = require('ssh2').Client
+var config = require('./app').config
+
 // var fs = require('fs')
 // var hostkeys = JSON.parse(fs.readFileSync('./hostkeyhashes.json', 'utf8'))
 var termCols, termRows
 var menuData = '<a id="logBtn"><i class="fas fa-clipboard fa-fw"></i> Start Log</a>' +
   '<a id="downloadLogBtn"><i class="fas fa-download fa-fw"></i> Download Log</a>'
+
+const DEFAULT_PRIVKEY = config.user.privkey != null ? fs.readFileSync(config.user.privkey) : null
+
+function sshForbidden (socket) {
+  debugWebSSH2('Attempt to connect without session.username/password or session varialbles defined, potentially previously abandoned client session. disconnecting websocket client.\r\nHandshake information: \r\n  ' + JSON.stringify(socket.handshake))
+  socket.emit('ssherror', 'WEBSOCKET ERROR - Refresh the browser and try again')
+  socket.request.session.destroy()
+  socket.disconnect(true)
+}
 
 // public
 module.exports = function socket (socket) {
@@ -114,26 +126,41 @@ module.exports = function socket (socket) {
     debugWebSSH2('conn.on(\'keyboard-interactive\')')
     finish([socket.request.session.userpassword])
   })
-  if (socket.request.session.username && socket.request.session.userpassword && socket.request.session.ssh) {
-    // console.log('hostkeys: ' + hostkeys[0].[0])
-    conn.connect({
-      host: socket.request.session.ssh.host,
-      port: socket.request.session.ssh.port,
-      username: socket.request.session.username,
-      password: socket.request.session.userpassword,
-      tryKeyboard: true,
-      algorithms: socket.request.session.ssh.algorithms,
-      readyTimeout: socket.request.session.ssh.readyTimeout,
-      keepaliveInterval: socket.request.session.ssh.keepaliveInterval,
-      keepaliveCountMax: socket.request.session.ssh.keepaliveCountMax,
-      debug: debug('ssh2')
-    })
-  } else {
-    debugWebSSH2('Attempt to connect without session.username/password or session varialbles defined, potentially previously abandoned client session. disconnecting websocket client.\r\nHandshake information: \r\n  ' + JSON.stringify(socket.handshake))
-    socket.emit('ssherror', 'WEBSOCKET ERROR - Refresh the browser and try again')
-    socket.request.session.destroy()
-    socket.disconnect(true)
+
+  if ( // base session check
+    socket.request.session.ssh == null ||
+    (socket.request.session.username == null && config.user.name == null)
+  ) {
+    return sshForbidden(socket)
   }
+
+  if ( // password / default private key check
+    (socket.request.session.userpassword == null && config.user.password == null) &&
+    config.user.privkey == null
+  ) {
+    return sshForbidden(socket)
+  }
+
+  // console.log('hostkeys: ' + hostkeys[0].[0])
+  const sshConfig = {
+    host: socket.request.session.ssh.host,
+    port: socket.request.session.ssh.port,
+    username: socket.request.session.username || config.user.name,
+    tryKeyboard: true,
+    algorithms: socket.request.session.ssh.algorithms,
+    readyTimeout: socket.request.session.ssh.readyTimeout,
+    keepaliveInterval: socket.request.session.ssh.keepaliveInterval,
+    keepaliveCountMax: socket.request.session.ssh.keepaliveCountMax,
+    debug: debug('ssh2')
+  }
+
+  if (DEFAULT_PRIVKEY != null) {
+    sshConfig.privateKey = DEFAULT_PRIVKEY
+  } else {
+    sshConfig.password = socket.request.session.userpassword || config.user.password
+  }
+
+  conn.connect(sshConfig)
 
   /**
   * Error handling for various events. Outputs error to client, logs to

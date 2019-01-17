@@ -8,7 +8,7 @@ var nodeRoot = path.dirname(require.main.filename)
 var configPath = path.join(nodeRoot, 'config.json')
 var publicPath = path.join(nodeRoot, 'client', 'public')
 console.log('WebSSH2 service reading config from: ' + configPath)
-var config = require('read-config')(configPath)
+var config = require('read-config')(configPath, { override: 'WSSH2' })
 var express = require('express')
 var logger = require('morgan')
 var session = require('express-session')({

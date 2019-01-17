@@ -54,15 +54,15 @@ rules:
   array-callback-return: off
   block-scoped-var: off
   class-methods-use-this: off
-  complexity:
-    - error
-    - 6
+  complexity: off
   consistent-return: off
   curly: off
   default-case: off
   dot-location: off
   dot-notation: off
-  eqeqeq: error
+  eqeqeq:
+    - error
+    - smart
   guard-for-in: error
   no-alert: error
   no-caller: error
@@ -71,7 +71,7 @@ rules:
   no-else-return: off
   no-empty-function: off
   no-empty-pattern: error
-  no-eq-null: error
+  no-eq-null: off
   no-eval: error
   no-extend-native: error
   no-extra-bind: error
